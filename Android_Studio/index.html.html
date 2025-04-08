@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Installed Apps App - Question & Answer</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f8f9fa; }
+        h2 { color: #333; }
+        pre { background: #eee; padding: 10px; overflow-x: auto; border-radius: 5px; }
+        code { font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <h2>📌 L7Q1:</h2>
+    <p>Design and develop an application that displays a list of installed applications on your device. On long press of any application, display the following options:</p>
+    <ul>
+        <li>Show whether the application is a system app or user-installed.</li>
+        <li>Provide options to open the app, uninstall it, or view its details (e.g., version, storage usage).</li>
+        <li>Indicate whether the app has special permissions enabled, like location or camera access.</li>
+    </ul>
+    <p>When an option like "View Details" is selected, navigate to a detailed view showing the app's permissions, size, and version. For the "Uninstall" option, prompt the user for confirmation before proceeding.</p>
+
+    <h2> Answer:</h2>
+    <h3>🔹 <code>activity_main.xml</code></h3>
+    <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"&gt;
+
+    &lt;ListView
+        android:id="@+id/app_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" /&gt;
+&lt;/LinearLayout&gt;
+</code></pre>
+
+    <h3>🔹 <code>MainActivity.java</code></h3>
+    <pre><code>public class MainActivity extends AppCompatActivity {
+    ListView listView;
+    List&lt;ApplicationInfo&gt; appList;
+    ArrayList&lt;String&gt; appNames;
+    PackageManager pm;
+
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        listView = findViewById(R.id.app_list);
+        pm = getPackageManager();
+        appList = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        appNames = new ArrayList&lt;&gt;();
+
+        for (ApplicationInfo app : appList) {
+            if (pm.getLaunchIntentForPackage(app.packageName) != null)
+                appNames.add(pm.getApplicationLabel(app).toString());
+        }
+
+        ArrayAdapter&lt;String&gt; adapter = new ArrayAdapter&lt;&gt;(this,
+            android.R.layout.simple_list_item_1, appNames);
+        listView.setAdapter(adapter);
+
+        listView.setOnItemLongClickListener((parent, view, position, id) -&gt; {
+            ApplicationInfo app = appList.get(position);
+            String[] options = {"App Type", "Open", "Uninstall", "View Details"};
+
+            new AlertDialog.Builder(this)
+                .setTitle(pm.getApplicationLabel(app).toString())
+                .setItems(options, (dialog, which) -&gt; {
+                    switch (which) {
+                        case 0:
+                            boolean isSystem = (app.flags &amp; ApplicationInfo.FLAG_SYSTEM) != 0;
+                            Toast.makeText(this, isSystem ? "System App" : "User App", Toast.LENGTH_SHORT).show();
+                            break;
+                        case 1:
+                            Intent launchIntent = pm.getLaunchIntentForPackage(app.packageName);
+                            if (launchIntent != null) startActivity(launchIntent);
+                            break;
+                        case 2:
+                            Intent uninstall = new Intent(Intent.ACTION_DELETE);
+                            uninstall.setData(Uri.parse("package:" + app.packageName));
+                            startActivity(uninstall);
+                            break;
+                        case 3:
+                            showAppDetails(app.packageName);
+                            break;
+                    }
+                }).show();
+            return true;
+        });
+    }
+
+    void showAppDetails(String packageName) {
+        try {
+            PackageInfo info = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
+            String version = info.versionName;
+            StringBuilder permissions = new StringBuilder();
+
+            if (info.requestedPermissions != null) {
+                for (String perm : info.requestedPermissions) {
+                    if (checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED) {
+                        permissions.append(perm).append("\n");
+                    }
+                }
+            }
+
+            new AlertDialog.Builder(this)
+                .setTitle("App Details")
+                .setMessage("Version: " + version + "\n\nPermissions:\n" + 
+                    (permissions.length() &gt; 0 ? permissions : "None granted"))
+                .setPositiveButton("OK", null)
+                .show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Error loading details", Toast.LENGTH_SHORT).show();
+        }
+    }
+}
+</code></pre>
+
+<h2>📌 L7Q2</h2>
+    <p>Create a View named <strong>“My Menu”</strong> which contains an image as an icon. On clicking that icon, show a submenu with items “Image -1” and “Image -2”. When each item is clicked, the corresponding image should be displayed, and a Toast should show the content related to that image.</p>
+
+    <h2> Answer:</h2>
+
+    <h3>🔹 <code>activity_main.xml</code></h3>
+    <pre><code>&lt;RelativeLayout xmSlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"&gt;
+
+    &lt;ImageView
+        android:id="@+id/menu_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_menu_more"
+        android:contentDescription="My Menu"
+        android:layout_centerHorizontal="true"/&gt;
+
+    &lt;ImageView
+        android:id="@+id/image_display"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_below="@id/menu_icon"
+        android:layout_marginTop="20dp"
+        android:layout_centerHorizontal="true"
+        android:scaleType="fitCenter" /&gt;
+
+&lt;/RelativeLayout&gt;
+</code></pre>
+
+    <h3>🔹 <code>MainActivity.java</code></h3>
+    <pre><code>public class MainActivity extends AppCompatActivity {
+
+    ImageView menuIcon, imageDisplay;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        menuIcon = findViewById(R.id.menu_icon);
+        imageDisplay = findViewById(R.id.image_display);
+
+        menuIcon.setOnClickListener(v -&gt; {
+            PopupMenu popup = new PopupMenu(this, menuIcon);
+            popup.getMenu().add("Image -1");
+            popup.getMenu().add("Image -2");
+
+            popup.setOnMenuItemClickListener(item -&gt; {
+                if (item.getTitle().equals("Image -1")) {
+                    imageDisplay.setImageResource(android.R.drawable.ic_menu_camera);
+                    Toast.makeText(this, "This is Image 1", Toast.LENGTH_SHORT).show();
+                } else {
+                    imageDisplay.setImageResource(android.R.drawable.ic_menu_gallery);
+                    Toast.makeText(this, "This is Image 2", Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            });
+            popup.show();
+        });
+    }
+}
+</code></pre>
+
+<h2>📌 L7Q3:</h2>
+    <p>Create a view that displays textual content describing "Digital Transformation". Add a filter option with submenus:</p>
+    <ul>
+        <li><strong>Search Keywords</strong> – Allow user to input keywords and search within the content.</li>
+        <li><strong>Highlight</strong> – Highlight specific words/phrases entered by the user.</li>
+        <li><strong>Sort</strong> – Provide option to sort the content alphabetically or by relevance to the search keyword.</li>
+    </ul>
+
+    <h2> Answer:</h2>
+
+    <h3>🔹 <code>activity_main.xml</code></h3>
+    <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"&gt;
+
+    &lt;ImageView
+        android:id="@+id/filter_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_menu_manage"
+        android:contentDescription="Filter" /&gt;
+
+    &lt;ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"&gt;
+
+        &lt;TextView
+            android:id="@+id/content_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Digital transformation involves integrating digital technologies into all aspects of a business, fundamentally changing how you operate and deliver value to customers."
+            android:textSize="16sp"/&gt;
+
+    &lt;/ScrollView&gt;
+&lt;/LinearLayout&gt;
+</code></pre>
+
+    <h3>🔹 <code>MainActivity.java</code></h3>
+    <pre><code>public class MainActivity extends AppCompatActivity {
+
+    TextView contentText;
+    ImageView filterIcon;
+    String originalText;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        contentText = findViewById(R.id.content_text);
+        filterIcon = findViewById(R.id.filter_icon);
+        originalText = contentText.getText().toString();
+
+        filterIcon.setOnClickListener(v -&gt; {
+            PopupMenu popup = new PopupMenu(this, filterIcon);
+            popup.getMenu().add("Search Keywords");
+            popup.getMenu().add("Highlight");
+            popup.getMenu().add("Sort");
+
+            popup.setOnMenuItemClickListener(item -&gt; {
+                if (item.getTitle().equals("Search Keywords")) {
+                    promptInput("Enter keyword", this::searchKeyword);
+                } else if (item.getTitle().equals("Highlight")) {
+                    promptInput("Enter word to highlight", this::highlightText);
+                } else {
+                    promptInput("Sort by: 'alpha' or 'relevance'", this::sortContent);
+                }
+                return true;
+            });
+            popup.show();
+        });
+    }
+
+    void promptInput(String title, Consumer&lt;String&gt; callback) {
+        EditText input = new EditText(this);
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(input)
+            .setPositiveButton("OK", (d, w) -&gt; callback.accept(input.getText().toString()))
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    void searchKeyword(String keyword) {
+        if (originalText.toLowerCase().contains(keyword.toLowerCase())) {
+            Toast.makeText(this, "Keyword found", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Not found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    void highlightText(String word) {
+        String highlighted = originalText.replaceAll("(?i)(" + word + ")", "&lt;font color='red'&gt;$1&lt;/font&gt;");
+        contentText.setText(Html.fromHtml(highlighted));
+    }
+
+    void sortContent(String mode) {
+        String[] words = originalText.split(" ");
+        if (mode.equalsIgnoreCase("alpha")) {
+            Arrays.sort(words);
+        } else {
+            Arrays.sort(words, Comparator.comparingInt(w -&gt; -Collections.frequency(Arrays.asList(words), w)));
+        }
+        contentText.setText(TextUtils.join(" ", words));
+    }
+}
+</code></pre>
+
+
+<h1>Android App: Task Manager</h1>
+
+<div class="section">
+    <h2>📌 Question</h2>
+    <p>Write a program to create a <strong>"Task Manager"</strong> application with the following features:</p>
+    <ul>
+        <li>A form to create and save tasks with fields like task name, due date, and priority level (High, Medium, Low).</li>
+        <li>A list view to display all the saved tasks with their details.</li>
+        <li>An option to edit or delete any task from the list.</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>🟦 MainActivity.java</h2>
+    <pre><code>package com.example.taskmanager;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.Spinner;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+public class MainActivity extends AppCompatActivity {
+
+EditText taskName, dueDate;
+Spinner priority;
+Button addButton;
+ListView taskListView;
+
+DBHelper dbHelper;
+ArrayAdapter&lt;String&gt; adapter;
+ArrayList&lt;String&gt; taskList;
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+
+    taskName = findViewById(R.id.taskName);
+    dueDate = findViewById(R.id.dueDate);
+    priority = findViewById(R.id.priority);
+    addButton = findViewById(R.id.addButton);
+    taskListView = findViewById(R.id.taskListView);
+
+    dbHelper = new DBHelper(this);
+    taskList = new ArrayList&lt;&gt;();
+
+    adapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_list_item_1, taskList);
+    taskListView.setAdapter(adapter);
+
+    ArrayAdapter&lt;String&gt; priorityAdapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_spinner_item, Arrays.asList("High", "Medium", "Low"));
+    priorityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    priority.setAdapter(priorityAdapter);
+
+    loadTasks();
+
+    addButton.setOnClickListener(v -&gt; addTask());
+
+    taskListView.setOnItemLongClickListener((parent, view, position, id) -&gt; {
+        String task = taskList.get(position);
+        dbHelper.deleteTask(task);
+        taskList.remove(position);
+        adapter.notifyDataSetChanged();
+        Toast.makeText(MainActivity.this, "Task Deleted", Toast.LENGTH_SHORT).show();
+        return true;
+    });
+}
+
+private void addTask() {
+    String name = taskName.getText().toString();
+    String date = dueDate.getText().toString();
+    String level = priority.getSelectedItem().toString();
+
+    if (!name.isEmpty() &amp;&amp; !date.isEmpty()) {
+        dbHelper.insertTask(name, date, level);
+        taskList.add(name + " - " + date + " - " + level);
+        adapter.notifyDataSetChanged();
+        taskName.setText("");
+        dueDate.setText("");
+        Toast.makeText(this, "Task Added", Toast.LENGTH_SHORT).show();
+    } else {
+        Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+    }
+}
+
+private void loadTasks() {
+    Cursor cursor = dbHelper.getTasks();
+    if (cursor.moveToFirst()) {
+        do {
+            String name = cursor.getString(1);
+            String date = cursor.getString(2);
+            String level = cursor.getString(3);
+            taskList.add(name + " - " + date + " - " + level);
+        } while (cursor.moveToNext());
+    }
+    cursor.close();
+}
+
+static class DBHelper extends SQLiteOpenHelper {
+
+    private static final String DB_NAME = "tasks.db";
+    private static final int DB_VERSION = 1;
+    private static final String TABLE_NAME = "tasks";
+
+    public DBHelper(Context context) {
+        super(context, DB_NAME, null, DB_VERSION);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE " + TABLE_NAME + " (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, due_date TEXT, priority TEXT)");
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+        onCreate(db);
+    }
+
+    public void insertTask(String name, String date, String priority) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("name", name);
+        values.put("due_date", date);
+        values.put("priority", priority);
+        db.insert(TABLE_NAME, null, values);
+        db.close();
+    }
+
+    public Cursor getTasks() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.rawQuery("SELECT * FROM " + TABLE_NAME, null);
+    }
+
+    public void deleteTask(String task) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        String name = task.split(" - ")[0];
+        db.delete(TABLE_NAME, "name = ?", new String[]{name});
+        db.close();
+    }
+}
+}</code></pre>
+</div>
+
+<div class="section">
+    <h2>📄 activity_main.xml</h2>
+    <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools"
+android:id="@+id/main"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical"
+android:padding="16dp"
+tools:context=".MainActivity"&gt;
+
+&lt;EditText
+    android:id="@+id/taskName"
+    android:layout_width="match_parent"
+    android:layout_height="66dp"
+    android:hint="Task Name" /&gt;
+
+&lt;EditText
+    android:id="@+id/dueDate"
+    android:layout_width="match_parent"
+    android:layout_height="66dp"
+    android:hint="Due Date (YYYY-MM-DD)" /&gt;
+
+&lt;Spinner
+    android:id="@+id/priority"
+    android:layout_width="match_parent"
+    android:layout_height="70dp" /&gt;
+
+&lt;Button
+    android:id="@+id/addButton"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Add Task" /&gt;
+
+&lt;ListView
+    android:id="@+id/taskListView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content" /&gt;
+
+&lt;/LinearLayout&gt;
+</code></pre>
+</div>
+
+<div class="section">
+    <h2>📄 AndroidManifest.xml</h2>
+    <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools"&gt;
+
+&lt;application
+    android:allowBackup="true"
+    android:dataExtractionRules="@xml/data_extraction_rules"
+    android:fullBackupContent="@xml/backup_rules"
+    android:icon="@mipmap/ic_launcher"
+    android:label="@string/app_name"
+    android:roundIcon="@mipmap/ic_launcher_round"
+    android:supportsRtl="true"
+    android:theme="@style/Theme.TaskManager"
+    tools:targetApi="31"&gt;
+    &lt;activity
+        android:name=".MainActivity"
+        android:exported="true"&gt;
+        &lt;intent-filter&gt;
+            &lt;action android:name="android.intent.action.MAIN" /&gt;
+            &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+        &lt;/intent-filter&gt;
+    &lt;/activity&gt;
+&lt;/application&gt;
+
+&lt;/manifest&gt;
+</code></pre>
+</div>
+
+<h2>Program: Grocery App with Total Cost Calculation</h2>
+
+  <h3>Question:</h3>
+  <p>
+    Write a program to add grocery items along with its cost into the database
+    and display the total cost of all the items selected by the user. Items have
+    to be displayed through Spinner.
+  </p>
+
+  <h3>Answer:</h3>
+
+  <h4>MainActivity.java</h4>
+  <pre><code>package com.example.grocery;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+
+    Spinner itemSpinner;
+    Button addButton, calculateButton;
+    TextView totalCostTextView;
+
+    GroceryDBHelper dbHelper;
+    ArrayAdapter&lt;String&gt; spinnerAdapter;
+    ArrayList&lt;String&gt; itemList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        itemSpinner = findViewById(R.id.itemSpinner);
+        addButton = findViewById(R.id.addButton);
+        calculateButton = findViewById(R.id.calculateButton);
+        totalCostTextView = findViewById(R.id.totalCostTextView);
+
+        dbHelper = new GroceryDBHelper(this);
+        itemList = new ArrayList&lt;&gt;();
+        loadItems();
+
+        spinnerAdapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_spinner_item, itemList);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        itemSpinner.setAdapter(spinnerAdapter);
+
+        addButton.setOnClickListener(v -&gt; addItem());
+
+        calculateButton.setOnClickListener(v -&gt; {
+            int totalCost = dbHelper.getTotalCost();
+            totalCostTextView.setText("Total Cost: " + totalCost);
+        });
+    }
+
+    private void loadItems() {
+        if (dbHelper.getItemCount() == 0) {
+            dbHelper.insertItem("Apple", 30);
+            dbHelper.insertItem("Banana", 10);
+            dbHelper.insertItem("Milk", 50);
+            dbHelper.insertItem("Bread", 40);
+        }
+
+        Cursor cursor = dbHelper.getAllItems();
+        if (cursor.moveToFirst()) {
+            do {
+                String itemName = cursor.getString(1);
+                int itemCost = cursor.getInt(2);
+                itemList.add(itemName + " - Rs." + itemCost);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+    }
+
+    private void addItem() {
+        String selectedItem = (String) itemSpinner.getSelectedItem();
+        if (selectedItem != null) {
+            String[] parts = selectedItem.split(" - Rs.");
+            String itemName = parts[0];
+            dbHelper.addSelectedItem(itemName);
+            Toast.makeText(this, "Item Added: " + itemName, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    static class GroceryDBHelper extends SQLiteOpenHelper {
+
+        private static final String DB_NAME = "grocery.db";
+        private static final int DB_VERSION = 1;
+        private static final String ITEM_TABLE = "items";
+        private static final String SELECTED_ITEM_TABLE = "selected_items";
+
+        public GroceryDBHelper(Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE " + ITEM_TABLE + " (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, cost INTEGER)");
+            db.execSQL("CREATE TABLE " + SELECTED_ITEM_TABLE + " (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS " + ITEM_TABLE);
+            db.execSQL("DROP TABLE IF EXISTS " + SELECTED_ITEM_TABLE);
+            onCreate(db);
+        }
+
+        public void insertItem(String name, int cost) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("name", name);
+            values.put("cost", cost);
+            db.insert(ITEM_TABLE, null, values);
+            db.close();
+        }
+
+        public Cursor getAllItems() {
+            SQLiteDatabase db = this.getReadableDatabase();
+            return db.rawQuery("SELECT * FROM " + ITEM_TABLE, null);
+        }
+
+        public int getItemCount() {
+            SQLiteDatabase db = this.getReadableDatabase();
+            Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM " + ITEM_TABLE, null);
+            int count = 0;
+            if (cursor.moveToFirst()) {
+                count = cursor.getInt(0);
+            }
+            cursor.close();
+            return count;
+        }
+
+        public void addSelectedItem(String name) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("name", name);
+            db.insert(SELECTED_ITEM_TABLE, null, values);
+            db.close();
+        }
+
+        public int getTotalCost() {
+            SQLiteDatabase db = this.getReadableDatabase();
+            String query = "SELECT SUM(cost) FROM " + ITEM_TABLE + " WHERE name IN (SELECT name FROM " + SELECTED_ITEM_TABLE + ")";
+            Cursor cursor = db.rawQuery(query, null);
+            int total = 0;
+            if (cursor.moveToFirst()) {
+                total = cursor.getInt(0);
+            }
+            cursor.close();
+            return total;
+        }
+    }
+}</code></pre>
+
+  <h4>activity_main.xml</h4>
+  <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".MainActivity"&gt;
+
+    &lt;Spinner
+        android:id="@+id/itemSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="52dp" /&gt;
+
+    &lt;Button
+        android:id="@+id/addButton"
+        android:layout_width="match_parent"
+        android:layout_height="63dp"
+        android:text="Add Item" /&gt;
+
+    &lt;Button
+        android:id="@+id/calculateButton"
+        android:layout_width="match_parent"
+        android:layout_height="59dp"
+        android:text="Calculate Total" /&gt;
+
+    &lt;TextView
+        android:id="@+id/totalCostTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Total Cost: 0"
+        android:textSize="18sp"
+        android:paddingTop="16dp" /&gt;
+
+&lt;/LinearLayout&gt;</code></pre>
+
+  <h4>AndroidManifest.xml</h4>
+  <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"&gt;
+
+    &lt;application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Grocery"
+        tools:targetApi="31"&gt;
+        &lt;activity
+            android:name=".MainActivity"
+            android:exported="true"&gt;
+            &lt;intent-filter&gt;
+                &lt;action android:name="android.intent.action.MAIN" /&gt;
+                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+            &lt;/intent-filter&gt;
+        &lt;/activity&gt;
+    &lt;/application&gt;
+
+&lt;/manifest&gt;</code></pre>
+
+  <p><strong>Note:</strong> All logic is inside <code>MainActivity.java</code> and no separate DBHelper file is used.</p>
+
+  <h2>Program: Movie Review App</h2>
+
+  <h3>Question:</h3>
+  <p>
+    Create an application “Movie Review” to do the following: <br>
+    a) User can write a movie review by stating movie name, year, giving points ranging from 1–5 and save details in a database. <br>
+    b) User can view the movie reviews for which reviews are already defined. Movie names have to be displayed using ListView, and the selected movie’s details should be displayed in a table.
+  </p>
+
+  <h3>Answer:</h3>
+
+  <h4>MainActivity.java</h4>
+  <pre><code>package com.example.moviereview;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.RatingBar;
+import android.widget.TableLayout;
+import android.widget.TableRow;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+
+    EditText movieName, movieYear;
+    RatingBar ratingBar;
+    Button submitButton;
+    ListView movieListView;
+    TableLayout reviewTable;
+
+    MovieDBHelper dbHelper;
+    ArrayAdapter&lt;String&gt; listAdapter;
+    ArrayList&lt;String&gt; movieList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        movieName = findViewById(R.id.movieName);
+        movieYear = findViewById(R.id.movieYear);
+        ratingBar = findViewById(R.id.ratingBar);
+        submitButton = findViewById(R.id.submitButton);
+        movieListView = findViewById(R.id.movieListView);
+        reviewTable = findViewById(R.id.reviewTable);
+
+        dbHelper = new MovieDBHelper(this);
+        movieList = new ArrayList&lt;&gt;();
+
+        listAdapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_list_item_1, movieList);
+        movieListView.setAdapter(listAdapter);
+
+        loadMovies();
+
+        submitButton.setOnClickListener(v -&gt; addReview());
+
+        movieListView.setOnItemClickListener((parent, view, position, id) -&gt; {
+            String selectedMovie = movieList.get(position);
+            displayMovieDetails(selectedMovie);
+        });
+    }
+
+    private void addReview() {
+        String name = movieName.getText().toString();
+        String year = movieYear.getText().toString();
+        int rating = (int) ratingBar.getRating();
+
+        if (name.isEmpty() || year.isEmpty()) {
+            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        dbHelper.insertReview(name, year, rating);
+        if (!movieList.contains(name)) {
+            movieList.add(name);
+            listAdapter.notifyDataSetChanged();
+        }
+
+        movieName.setText("");
+        movieYear.setText("");
+        ratingBar.setRating(0);
+        Toast.makeText(this, "Review Added", Toast.LENGTH_SHORT).show();
+    }
+
+    private void loadMovies() {
+        Cursor cursor = dbHelper.getAllMovies();
+        if (cursor.moveToFirst()) {
+            do {
+                String name = cursor.getString(0);
+                if (!movieList.contains(name)) {
+                    movieList.add(name);
+                }
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+    }
+
+    private void displayMovieDetails(String movie) {
+        reviewTable.removeAllViews();
+
+        Cursor cursor = dbHelper.getMovieDetails(movie);
+        if (cursor.moveToFirst()) {
+            do {
+                TableRow row = new TableRow(this);
+
+                TextView yearView = new TextView(this);
+                yearView.setText(cursor.getString(0));
+                row.addView(yearView);
+
+                TextView ratingView = new TextView(this);
+                ratingView.setText(cursor.getString(1));
+                row.addView(ratingView);
+
+                reviewTable.addView(row);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+    }
+
+    static class MovieDBHelper extends SQLiteOpenHelper {
+
+        private static final String DB_NAME = "movies.db";
+        private static final int DB_VERSION = 1;
+        private static final String TABLE_NAME = "reviews";
+
+        public MovieDBHelper(Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE " + TABLE_NAME + " (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, year TEXT, rating INTEGER)");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+            onCreate(db);
+        }
+
+        public void insertReview(String name, String year, int rating) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("name", name);
+            values.put("year", year);
+            values.put("rating", rating);
+            db.insert(TABLE_NAME, null, values);
+            db.close();
+        }
+
+        public Cursor getAllMovies() {
+            SQLiteDatabase db = this.getReadableDatabase();
+            return db.rawQuery("SELECT DISTINCT name FROM " + TABLE_NAME, null);
+        }
+
+        public Cursor getMovieDetails(String name) {
+            SQLiteDatabase db = this.getReadableDatabase();
+            return db.rawQuery("SELECT year, rating FROM " + TABLE_NAME + " WHERE name = ?", new String[]{name});
+        }
+    }
+}</code></pre>
+
+  <h4>activity_main.xml</h4>
+  <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".MainActivity"&gt;
+
+    &lt;EditText
+        android:id="@+id/movieName"
+        android:layout_width="match_parent"
+        android:layout_height="59dp"
+        android:hint="Enter Album Name" /&gt;
+
+    &lt;EditText
+        android:id="@+id/movieYear"
+        android:layout_width="match_parent"
+        android:layout_height="57dp"
+        android:hint="Enter Album Year" /&gt;
+
+    &lt;RatingBar
+        android:id="@+id/ratingBar"
+        android:layout_width="291dp"
+        android:layout_height="wrap_content"
+        android:numStars="5"
+        android:stepSize="1.0" /&gt;
+
+    &lt;Button
+        android:id="@+id/submitButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit Review" /&gt;
+
+    &lt;ListView
+        android:id="@+id/movieListView"
+        android:layout_width="match_parent"
+        android:layout_height="455dp" /&gt;
+
+    &lt;TableLayout
+        android:id="@+id/reviewTable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:stretchColumns="*"&gt;
+    &lt;/TableLayout&gt;
+
+&lt;/LinearLayout&gt;</code></pre>
+
+  <h4>AndroidManifest.xml</h4>
+  <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"&gt;
+
+    &lt;application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MovieReview"
+        tools:targetApi="31"&gt;
+        &lt;activity
+            android:name=".MainActivity"
+            android:exported="true"&gt;
+            &lt;intent-filter&gt;
+                &lt;action android:name="android.intent.action.MAIN" /&gt;
+                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+            &lt;/intent-filter&gt;
+        &lt;/activity&gt;
+    &lt;/application&gt;
+
+&lt;/manifest&gt;</code></pre>
+
+  <p><strong>Note:</strong> All logic is inside <code>MainActivity.java</code> using an inner class <code>MovieDBHelper</code> for SQLite operations.</p>
+
+  <h2>Program: View and Modify SQLite Database using SQLite Browser</h2>
+
+  <h3>Question:</h3>
+  <p>
+    Make use of SQLite browser to view the database, tables created. Modify the tables and upload the same into your project and view the modified data through your app.
+  </p>
+
+  <h3>Answer:</h3>
+
+  <h4>MainActivity.java</h4>
+  <pre><code>package com.example.sqlitebrowser;
+
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+
+    EditText itemName, itemPrice;
+    Button addButton, refreshButton;
+    ListView itemListView;
+    ArrayList&lt;String&gt; itemList;
+    ArrayAdapter&lt;String&gt; itemAdapter;
+    DBHelper dbHelper;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        itemName = findViewById(R.id.itemName);
+        itemPrice = findViewById(R.id.itemPrice);
+        addButton = findViewById(R.id.addButton);
+        refreshButton = findViewById(R.id.refreshButton);
+        itemListView = findViewById(R.id.itemListView);
+
+        dbHelper = new DBHelper(this);
+        itemList = new ArrayList&lt;&gt;();
+        itemAdapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_list_item_1, itemList);
+        itemListView.setAdapter(itemAdapter);
+
+        loadItems();
+
+        addButton.setOnClickListener(v -&gt; {
+            addItem();
+            loadItems();
+        });
+
+        refreshButton.setOnClickListener(v -&gt; {
+            loadItems();
+            Toast.makeText(this, "Data Reloaded", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void addItem() {
+        String name = itemName.getText().toString();
+        String price = itemPrice.getText().toString();
+
+        if (name.isEmpty() || price.isEmpty()) {
+            Toast.makeText(this, "Fill all fields", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        dbHelper.insertItem(name, Double.parseDouble(price));
+        Toast.makeText(this, "Item Added", Toast.LENGTH_SHORT).show();
+        itemName.setText("");
+        itemPrice.setText("");
+    }
+
+    private void loadItems() {
+        itemList.clear();
+        Cursor cursor = dbHelper.getAllItems();
+        while (cursor.moveToNext()) {
+            String item = "Name: " + cursor.getString(0) + ", Price: " + cursor.getDouble(1);
+            itemList.add(item);
+        }
+        cursor.close();
+        itemAdapter.notifyDataSetChanged();
+    }
+
+    static class DBHelper extends SQLiteOpenHelper {
+        private static final String DATABASE_NAME = "grocery.db";
+        private static final int DATABASE_VERSION = 1;
+        private static final String TABLE_NAME = "items";
+
+        public DBHelper(MainActivity context) {
+            super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME +
+                    " (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL)");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+            onCreate(db);
+        }
+
+        public void insertItem(String name, double price) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("name", name);
+            values.put("price", price);
+            db.insert(TABLE_NAME, null, values);
+            db.close();
+        }
+
+        public Cursor getAllItems() {
+            SQLiteDatabase db = this.getReadableDatabase();
+            return db.rawQuery("SELECT name, price FROM " + TABLE_NAME, null);
+        }
+    }
+}</code></pre>
+
+  <h4>activity_main.xml</h4>
+  <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:id="@+id/main"
+    tools:context=".MainActivity"&gt;
+
+    &lt;EditText
+        android:id="@+id/itemName"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:hint="Item Name" /&gt;
+
+    &lt;EditText
+        android:id="@+id/itemPrice"
+        android:layout_width="match_parent"
+        android:layout_height="71dp"
+        android:hint="Item Price" /&gt;
+
+    &lt;Button
+        android:id="@+id/addButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Item" /&gt;
+
+    &lt;Button
+        android:id="@+id/refreshButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Refresh Data" /&gt;
+
+    &lt;ListView
+        android:id="@+id/itemListView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" /&gt;
+
+&lt;/LinearLayout&gt;</code></pre>
+
+  <h4>AndroidManifest.xml</h4>
+  <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"&gt;
+
+    &lt;application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SQLiteBrowser"
+        tools:targetApi="31"&gt;
+        &lt;activity
+            android:name=".MainActivity"
+            android:exported="true"&gt;
+            &lt;intent-filter&gt;
+                &lt;action android:name="android.intent.action.MAIN" /&gt;
+                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+            &lt;/intent-filter&gt;
+        &lt;/activity&gt;
+    &lt;/application&gt;
+
+&lt;/manifest&gt;</code></pre>
+
+  <p><strong>Note:</strong> Use SQLite Browser to open the <code>grocery.db</code> file located in the app's internal storage. Modify or add new entries in the <code>items</code> table and place the modified database into the project assets or replace the original database in the emulator/device using Android Device File Explorer.</p>
+
+  <h2>Program: Demonstrate Shared Preferences in Android</h2>
+
+  <h3>Question:</h3>
+  <p>
+    Demonstrate the use of the Shared Preferences through an Android application which displays a screen with some text fields. Save the value when the application is closed and brought back when it is opened again.
+  </p>
+
+  <h3>Answer:</h3>
+
+  <h4>MainActivity.java</h4>
+  <pre><code>package com.example.sharedpreferences;
+
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    private EditText nameInput, emailInput;
+    private Button saveButton;
+
+    private static final String PREFS_NAME = "UserPrefs";
+    private static final String KEY_NAME = "name";
+    private static final String KEY_EMAIL = "email";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        nameInput = findViewById(R.id.nameInput);
+        emailInput = findViewById(R.id.emailInput);
+        saveButton = findViewById(R.id.saveButton);
+
+        loadSavedData(); // Restore saved data
+
+        saveButton.setOnClickListener(v -&gt; {
+            saveData();
+            Toast.makeText(MainActivity.this, "Data Saved", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    // Save data to SharedPreferences
+    private void saveData() {
+        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(KEY_NAME, nameInput.getText().toString());
+        editor.putString(KEY_EMAIL, emailInput.getText().toString());
+        editor.apply(); // Apply changes asynchronously
+    }
+
+    // Load data from SharedPreferences
+    private void loadSavedData() {
+        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String savedName = sharedPreferences.getString(KEY_NAME, "");
+        String savedEmail = sharedPreferences.getString(KEY_EMAIL, "");
+
+        nameInput.setText(savedName);
+        emailInput.setText(savedEmail);
+    }
+}
+</code></pre>
+
+  <h4>activity_main.xml</h4>
+  <pre><code>&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:id="@+id/main"
+    tools:context=".MainActivity"&gt;
+
+    &lt;EditText
+        android:id="@+id/nameInput"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:hint="Enter Name" /&gt;
+
+    &lt;EditText
+        android:id="@+id/emailInput"
+        android:layout_width="match_parent"
+        android:layout_height="71dp"
+        android:hint="Enter Email" /&gt;
+
+    &lt;Button
+        android:id="@+id/saveButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Save Data" /&gt;
+
+&lt;/LinearLayout&gt;
+</code></pre>
+
+  <h4>AndroidManifest.xml</h4>
+  <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"&gt;
+
+    &lt;application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SharedPreferences"
+        tools:targetApi="31"&gt;
+        &lt;activity
+            android:name=".MainActivity"
+            android:exported="true"&gt;
+            &lt;intent-filter&gt;
+                &lt;action android:name="android.intent.action.MAIN" /&gt;
+                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+            &lt;/intent-filter&gt;
+        &lt;/activity&gt;
+    &lt;/application&gt;
+
+&lt;/manifest&gt;
+</code></pre>
+
+  <p><strong>Note:</strong> This app demonstrates how to use SharedPreferences to save and restore user-entered data across app restarts.</p>
+
+  <h2>How to jump through pages</h2>
+
+<h3>MainActivity.java</h3>
+<pre><code>
+package com.example.navigationdemo;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    Button nextPageButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main); // XML file for Page 1
+
+        nextPageButton = findViewById(R.id.nextPageButton);
+
+        nextPageButton.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, SecondActivity.class);
+            startActivity(intent);
+        });
+    }
+}
+</code></pre>
+
+<h3>SecondActivity.java</h3>
+<pre><code>
+package com.example.navigationdemo;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class SecondActivity extends AppCompatActivity {
+
+    Button backButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_second); // XML file for Page 2
+
+        backButton = findViewById(R.id.backButton);
+
+        backButton.setOnClickListener(v -> {
+            Intent intent = new Intent(SecondActivity.this, MainActivity.class);
+            startActivity(intent);
+        });
+    }
+}
+</code></pre>
+
+<h3>Don't forget:</h3>
+<p>Add both activities to your <code>AndroidManifest.xml</code></p>
+<pre><code>
+&lt;application ... &gt;
+    &lt;activity android:name=".MainActivity" /&gt;
+    &lt;activity android:name=".SecondActivity" /&gt;
+&lt;/application&gt;
+</code></pre>
+
+<h2>Sending data and receiving data</h2>
+
+<h3>1. Sending String Inputs</h3>
+<p>On Page 1 (<code>MainActivity</code>), assume we have an <code>EditText</code> for a number (e.g., marks or price):</p>
+<pre><code>
+EditText marksInput = findViewById(R.id.marksInput);
+
+String marksString = marksInput.getText().toString();
+
+Intent intent = new Intent(MainActivity.this, SecondActivity.class);
+intent.putExtra("marksValue", marksString);
+startActivity(intent);
+</code></pre>
+
+<h3>2. Receiving and Converting to Number</h3>
+<p>On Page 2 (<code>SecondActivity</code>), you retrieve the string and convert it:</p>
+<pre><code>
+String marksStr = getIntent().getStringExtra("marksValue");
+
+// Safely convert string to int/double
+int marks = 0;
+try {
+    marks = Integer.parseInt(marksStr); // or use Double.parseDouble for double
+} catch (NumberFormatException e) {
+    e.printStackTrace(); // handle error (e.g., invalid number)
+}
+
+// Now you can use `marks` for calculations
+int result = marks + 10;
+</code></pre>
+
+<p>Here’s the HTML format code for an Android app where:
+
+    Page 1 lets you enter a name and age.
+
+    Page 2 displays a list of the added entries.</p>
+
+<h2>Page 1: MainActivity.java</h2>
+<pre><code>
+package com.example.dataentrylist;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    EditText nameInput, ageInput;
+    Button sendButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        nameInput = findViewById(R.id.nameInput);
+        ageInput = findViewById(R.id.ageInput);
+        sendButton = findViewById(R.id.sendButton);
+
+        sendButton.setOnClickListener(v -> {
+            String name = nameInput.getText().toString();
+            String age = ageInput.getText().toString();
+
+            Intent intent = new Intent(MainActivity.this, SecondActivity.class);
+            intent.putExtra("name", name);
+            intent.putExtra("age", age);
+            startActivity(intent);
+        });
+    }
+}
+</code></pre>
+
+<h2>Page 2: SecondActivity.java</h2>
+<pre><code>
+package com.example.dataentrylist;
+
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+
+public class SecondActivity extends AppCompatActivity {
+
+    ListView dataListView;
+    static ArrayList&lt;String&gt; dataList = new ArrayList&lt;&gt;();
+    ArrayAdapter&lt;String&gt; adapter;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_second);
+
+        dataListView = findViewById(R.id.dataListView);
+
+        String name = getIntent().getStringExtra("name");
+        String age = getIntent().getStringExtra("age");
+
+        if (name != null && age != null) {
+            dataList.add("Name: " + name + ", Age: " + age);
+        }
+
+        adapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_list_item_1, dataList);
+        dataListView.setAdapter(adapter);
+    }
+}
+</code></pre>
+
+<h2>activity_main.xml</h2>
+<pre><code>
+&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"&gt;
+
+    &lt;EditText
+        android:id="@+id/nameInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Name" /&gt;
+
+    &lt;EditText
+        android:id="@+id/ageInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Age" /&gt;
+
+    &lt;Button
+        android:id="@+id/sendButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add to List" /&gt;
+&lt;/LinearLayout&gt;
+</code></pre>
+
+<h2>activity_second.xml</h2>
+<pre><code>
+&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"&gt;
+
+    &lt;ListView
+        android:id="@+id/dataListView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" /&gt;
+&lt;/LinearLayout&gt;
+</code></pre>
+
+<h2>AndroidManifest.xml</h2>
+<pre><code>
+&lt;application ... &gt;
+    &lt;activity android:name=".MainActivity"&gt;
+        &lt;intent-filter&gt;
+            &lt;action android:name="android.intent.action.MAIN" /&gt;
+            &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+        &lt;/intent-filter&gt;
+    &lt;/activity&gt;
+    &lt;activity android:name=".SecondActivity" /&gt;
+&lt;/application&gt;
+</code></pre>
+
+<h2>Travel Ticket Booking App</h2>
+
+<h3>Question:</h3>
+<p>
+Design and develop a "Travel Ticket Booking" app where users can book tickets by selecting the source and destination from dropdown lists (spinners) and choosing the date of travel using a date picker. Include a toggle button to let users specify whether they want a one-way ticket or a round-trip ticket. The app should have "Submit" and "Reset" buttons. When the "Submit" button is clicked, display the entered details on a new screen in a structured format. The "Reset" button should clear all input fields and set the date picker to the current system date and time.
+</p>
+
+<h3>activity_main.xml</h3>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"&gt;
+
+    &lt;TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Select Vehicle Type:"
+        android:textSize="18sp"/&gt;
+
+    &lt;Spinner
+        android:id="@+id/vehicleTypeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/&gt;
+
+    &lt;EditText
+        android:id="@+id/vehicleNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Vehicle Number"/&gt;
+
+    &lt;EditText
+        android:id="@+id/rcNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter RC Number"/&gt;
+
+    &lt;Button
+        android:id="@+id/submitButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit"/&gt;
+
+&lt;/LinearLayout&gt;
+</code></pre>
+
+<h3>activity_confirmation.xml</h3>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"&gt;
+
+    &lt;TextView
+        android:id="@+id/detailsTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"/&gt;
+
+    &lt;Button
+        android:id="@+id/confirmButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Confirm"/&gt;
+
+    &lt;Button
+        android:id="@+id/editButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Edit Details"/&gt;
+
+&lt;/LinearLayout&gt;
+</code></pre>
+
+<h3>MainActivity.java</h3>
+<pre><code>package com.example.myapplication;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+    private Spinner vehicleTypeSpinner;
+    private EditText vehicleNumber, rcNumber;
+    private Button submitButton;
+    private String selectedVehicleType;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        vehicleTypeSpinner = findViewById(R.id.vehicleTypeSpinner);
+        vehicleNumber = findViewById(R.id.vehicleNumber);
+        rcNumber = findViewById(R.id.rcNumber);
+        submitButton = findViewById(R.id.submitButton);
+
+        ArrayList&lt;String&gt; vehicleTypes = new ArrayList&lt;&gt;();
+        vehicleTypes.add("Car");
+        vehicleTypes.add("Bike");
+        vehicleTypes.add("Truck");
+        vehicleTypes.add("Bus");
+
+        ArrayAdapter&lt;String&gt; adapter = new ArrayAdapter&lt;&gt;(this, android.R.layout.simple_spinner_dropdown_item, vehicleTypes);
+        vehicleTypeSpinner.setAdapter(adapter);
+
+        vehicleTypeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView&lt;?&gt; parent, View view, int position, long id) {
+                selectedVehicleType = vehicleTypes.get(position);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView&lt;?&gt; parent) {}
+        });
+
+        submitButton.setOnClickListener(view -&gt; {
+            String vNumber = vehicleNumber.getText().toString();
+            String rcNum = rcNumber.getText().toString();
+
+            Intent intent = new Intent(MainActivity.this, ConfirmationActivity.class);
+            intent.putExtra("vehicleType", selectedVehicleType);
+            intent.putExtra("vehicleNumber", vNumber);
+            intent.putExtra("rcNumber", rcNum);
+            startActivity(intent);
+        });
+    }
+}
+</code></pre>
+
+<h3>ConfirmationActivity.java</h3>
+<pre><code>package com.example.myapplication;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.Random;
+
+public class ConfirmationActivity extends AppCompatActivity {
+    private TextView detailsTextView;
+    private Button confirmButton, editButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_confirmation);
+
+        detailsTextView = findViewById(R.id.detailsTextView);
+        confirmButton = findViewById(R.id.confirmButton);
+        editButton = findViewById(R.id.editButton);
+
+        Intent intent = getIntent();
+        String vehicleType = intent.getStringExtra("vehicleType");
+        String vehicleNumber = intent.getStringExtra("vehicleNumber");
+        String rcNumber = intent.getStringExtra("rcNumber");
+
+        String details = "Vehicle Type: " + vehicleType + "\n" +
+                         "Vehicle Number: " + vehicleNumber + "\n" +
+                         "RC Number: " + rcNumber;
+        detailsTextView.setText(details);
+
+        confirmButton.setOnClickListener(view -&gt; {
+            int serialNumber = new Random().nextInt(9000) + 1000;
+            Toast.makeText(ConfirmationActivity.this, "Parking Confirmed! Serial No: " + serialNumber, Toast.LENGTH_LONG).show();
+        });
+
+        editButton.setOnClickListener(view -&gt; {
+            Intent backIntent = new Intent(ConfirmationActivity.this, MainActivity.class);
+            startActivity(backIntent);
+        });
+    }
+}
+</code></pre>
+
+<h3>AndroidManifest.xml</h3>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"&gt;
+
+    &lt;application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication"
+        tools:targetApi="31"&gt;
+
+        &lt;activity android:name=".ConfirmationActivity"/&gt;
+
+        &lt;activity
+            android:name=".MainActivity"
+            android:exported="true"&gt;
+            &lt;intent-filter&gt;
+                &lt;action android:name="android.intent.action.MAIN" /&gt;
+                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+            &lt;/intent-filter&gt;
+        &lt;/activity&gt;
+
+    &lt;/application&gt;
+&lt;/manifest&gt;
+</code></pre>
+
+<h2>Using Toast in Android</h2>
+
+    <h3>What is a Toast?</h3>
+    <p>A <b>Toast</b> in Android is a small popup message that provides simple feedback about an operation. It automatically disappears after a short time.</p>
+
+    <h3>Basic Syntax</h3>
+    <pre><code>
+// Show a short toast
+Toast.makeText(context, "Your message", Toast.LENGTH_SHORT).show();
+
+// Show a long toast
+Toast.makeText(context, "Your message", Toast.LENGTH_LONG).show();
+    </code></pre>
+
+    <h3>Example in Activity</h3>
+    <pre><code>
+Button button = findViewById(R.id.myButton);
+button.setOnClickListener(v -> {
+    Toast.makeText(MainActivity.this, "Button Clicked!", Toast.LENGTH_SHORT).show();
+});
+    </code></pre>
+
+    <h3>Explanation</h3>
+    <ul>
+        <li><b>Context:</b> Usually the activity (e.g., MainActivity.this)</li>
+        <li><b>Message:</b> Text to display</li>
+        <li><b>Duration:</b> LENGTH_SHORT (2 sec) or LENGTH_LONG (3.5 sec)</li>
+    </ul>
+
+    <h3>Toast with Variable</h3>
+    <pre><code>
+String name = "John";
+Toast.makeText(this, "Hello " + name, Toast.LENGTH_SHORT).show();
+    </code></pre>
+
+    <h3>Note:</h3>
+    <p>Toast messages are not interactive and disappear automatically. Use them for lightweight, non-critical feedback.</p>
+</body>
+</html>
